@@ -1,1 +1,1 @@
-%staff ALL=(ALL) NOPASSWD: /opt/korpiq/bin/logout_others.sh
+%staff ALL=(ALL) NOPASSWD: /Applications/Logout_Others.app/Contents/MacOS/Logout_Others
