@@ -1,0 +1,20 @@
+<dict>
+    <key>tile-data</key>
+    <dict>
+        <key>bundle-identifier</key>
+        <string>fi.iki.korpiq.Logout_Others</string>
+        <key>file-data</key>
+        <dict>
+            <key>_CFURLString</key>
+            <string>file:///Applications/Logout_Others.app/</string>
+            <key>_CFURLStringType</key>
+            <integer>15</integer>
+        </dict>
+        <key>file-label</key>
+        <string>Logout Others</string>
+        <key>file-type</key>
+        <integer>41</integer>
+    </dict>
+    <key>tile-type</key>
+    <string>file-tile</string>
+</dict>

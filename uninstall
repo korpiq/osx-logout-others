@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# stop on error
+set -e
+
+USAGE="
+Removes files and settings installed by install command.
+"
+
+THIS_DIR=$(cd -- $(dirname "$BASH_SOURCE"); pwd)
+# set variables and functions
+source "$THIS_DIR/setup/functions.sh"
+
+echo === Uninstalling files:
+
+applescript_to_remove_file () {
+    echo 'tell application "Finder" to move POSIX file "'"$1"'" to trash'
+}
+
+for TARGET in "$ROOT_DIR$CONF_DIR/logout_others" "$ROOT_DIR$APP"
+do
+    SCRIPT=""
+    if [ -e "$TARGET" ] && grep -q '/..*/' <<<"$TARGET"
+    then
+        echo "=  Removing: $TARGET"
+        SCRIPT="$SCRIPT$(applescript_to_remove_file "$TARGET")"$'\n'
+    else
+        echo "=   Already removed: $TARGET"
+    fi
+
+    if [ -n "$SCRIPT" ]
+    then
+        echo "$SCRIPT"
+        osascript -e "$SCRIPT"
+    fi
+done
+
+echo "=== Remove $NAME from users Docks:"
+
+no_app_in_dock () {
+    echo "=   has no $NAME in Dock"
+}
+
+each_user_with_app_in_dock "$NAME" remove_app_from_dock no_app_in_dock
+
+echo === $0 successfully completed.
+

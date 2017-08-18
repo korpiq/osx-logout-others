@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# stop on error
+set -e
+
+USAGE="
+Installs application and configuration
+so that every user can log out others
+by clicking an icon on their Dock.
+"
+
+THIS_DIR=$(cd $(dirname "$BASH_SOURCE"); pwd)
+# set variables and functions
+source "$THIS_DIR/setup/functions.sh"
+
+[ -n "$*" ] && usage "This command takes no parameters."
+
+run_as_root "$@"
+
+echo === Installing files:
+
+tar cf - -C "$THIS_DIR" "$APP" private/etc/sudoers.d |
+    tar xvf - -poC "$ROOT_DIR"
+
+echo === Publishing for users:
+
+DOCK_CONF=$(cat "$THIS_DIR/setup/dock-part.xml")
+
+replace_app_in_dock () {
+    echo "=   replacing $NAME in Dock"
+    remove_app_from_dock "$@"
+    add_app_to_dock "$@"
+}
+
+add_app_to_dock () {
+    echo "=   adding $NAME to Dock"
+    sudo -u "$1" \
+        defaults write com.apple.dock persistent-apps -array-add "$DOCK_CONF"
+    DOCK_CHANGED=1
+}
+
+each_user_with_app_in_dock "$NAME" replace_app_in_dock add_app_to_dock
+
+echo === $0 successfully completed.
+
