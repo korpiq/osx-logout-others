@@ -11,7 +11,7 @@ than forcing a reboot.
 Requirements
 ------------
 
- - OS X Yosemite 10.10.5
+ - OS X Yosemite 10.10.5 (tested; does not work on Sierra 10.12.6)
  - Installation and uninstallation require superuser (sudo) privileges
 
 Contents
