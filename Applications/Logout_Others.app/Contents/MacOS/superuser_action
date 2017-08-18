@@ -1,0 +1,101 @@
+#!/bin/bash
+
+pattern_of_users () {
+    joiner=""
+    for user in "$@"
+    do
+        if [ -d "/Users/$user/." ]
+        then
+            echo -n "$joiner$user"
+            joiner="\\|"
+        else
+            echo "User does not exist: $user" >&2
+            exit 1
+        fi
+    done
+}
+
+list_user_loginwindow_pids () {
+    user_pattern=$(pattern_of_users "$@")
+    ps ax -o user,pid,comm | grep "^\\($user_pattern\\) .*/loginwindow$"
+}
+
+request_logouts () {
+    list_user_loginwindow_pids "$@" |
+        while read user pid command
+        do
+            if launchctl 1>&2 bsexec $pid osascript -e \
+                'tell application "loginwindow" to «event aevtrlgo»'
+            then
+                echo "Requested logout: $user" >&2
+                echo "$user"
+            else
+                echo "Request failed for user: $user" >&2
+            fi
+        done
+}
+
+users_with_processes () {
+    list_user_loginwindow_pids "$@" |
+        while read user pid command
+        do
+            echo "$user"
+        done
+}
+
+wait_for_users_with_processes () {
+    REMAINING_USERS="$*"
+    for i in 0 1 2 3 4 5 6 7 8 9
+    do
+        REMAINING_USERS=$(users_with_processes $REMAINING_USERS)
+        [ -z "$REMAINING_USERS" ] && break
+        sleep 1
+    done
+
+    users_with_processes $REMAINING_USERS
+}
+
+send_signal_to_processes_of_users () {
+    SIGNAL="$1"
+    shift
+
+    echo "Sending $SIGNAL to users: $*"
+    for user in "$@"
+    do
+        killall -$SIGNAL -u "$user" || echo "Failed to force out user: $user"
+    done
+}
+
+main () {
+
+    if [ "$1" = "--force" ]
+    then
+        FORCE="$1"
+        shift
+    fi
+
+    LOGGEDOUT_USERS=$(request_logouts "$@")
+    REMAINING_USERS=$(wait_for_users_with_processes $LOGGEDOUT_USERS)
+
+    [ -n "$FORCE" -a -n "$REMAINING_USERS" ] &&
+        send_signal_to_processes_of_users TERM $REMAINING_USERS &&
+        REMAINING_USERS=$(wait_for_users_with_processes $REMAINING_USERS)
+
+    [ -n "$FORCE" -a -n "$REMAINING_USERS" ] &&
+        send_signal_to_processes_of_users KILL $REMAINING_USERS &&
+        REMAINING_USERS=$(wait_for_users_with_processes $REMAINING_USERS)
+
+    if [ -n "$REMAINING_USERS" ]
+    then
+        echo Failed to log out users: $REMAINING_USERS
+    else
+        echo Succesfully logged out all other users: $LOGGEDOUT_USERS
+    fi
+}
+
+if [ "$0" = "$BASH_SOURCE" ]
+then
+    [ "$UID" = "0" ] || exec sudo "$0" "$@"
+    main "$@"
+fi
+

@@ -1,14 +1,80 @@
 #!/bin/bash
 
-[ "$UID" = "0" ] || exec sudo "$0" "$USER"
+set -e
 
-keep_user="$1"
-ps ax -o user,pid,command |
-    grep /loginwindow.app/ |
-    grep -v "^$keep_user " |
-    while read user pid command
-    do
-        launchctl bsexec $pid osascript -e \
-            'tell application "loginwindow" to «event aevtrlgo»'
-    done
+THIS_DIR=$(cd -- $(dirname "$BASH_SOURCE"); pwd)
+SUPERUSER_ACTION="$THIS_DIR/superuser_action"
+
+show_dialog_who_to_logout_how () {
+    osascript <<-END
+	display dialog "Logout users:" ¬
+	    default answer "$*" ¬
+	    buttons ["Cancel", "Request Logout", "Force Logout"] ¬
+	    default button 2 ¬
+	    cancel button 1 ¬
+	    with title "Logout Other Users" ¬
+	    giving up after 60
+	END
+}
+
+ask_who_to_logout_how () {
+	DIALOG_OUTPUT=$(show_dialog_who_to_logout_how "$@")
+	grep -q 'button returned:Force ' <<<"$DIALOG_OUTPUT" && echo Force || echo Request
+	sed -e 's/.*text returned://; s/,.*//' <<< "$DIALOG_OUTPUT"
+}
+
+other_current_users () {
+	ps ax -o user,comm |
+		sed -ne 's: .*/loginwindow$::p' |
+		grep -v "^\\(root\\|$USER\\)$"
+}
+
+request_logout () {
+    [ "$1" = "Force" ] && FORCE="--force" || FORCE=""
+    shift
+    USERS="$*"
+    "$SUPERUSER_ACTION" $FORCE $USERS 2>&1 || echo "Logout Others failed!"
+}
+
+report_result () {
+    [ "$1" = "Force" ] && VERB="Forced" || VERB="Requested"
+    shift
+    osascript <<-END
+	display dialog "$*" ¬
+	    buttons ["Ok"] ¬
+	    default button 1 ¬
+	    cancel button 1 ¬
+	    with title "$VERB Others to Logout" ¬
+	    giving up after 60
+	END
+}
+
+read_only_dialog () {
+    osascript <<-END
+		display dialog "$1" ¬
+	   		buttons ["OK"] ¬
+		   	default button 1 ¬
+		   	cancel button 1 ¬
+            with title "Logout Others" ¬
+		   	giving up after ${2:-5}
+	END
+}
+
+first () { echo "$1"; }
+rest () { shift; echo "$*"; }
+
+OTHER_CURRENT_USERS=$(other_current_users || true)
+[ -z "$OTHER_CURRENT_USERS" ] && read_only_dialog "No other users logged in."
+ARGS=$(ask_who_to_logout_how $OTHER_CURRENT_USERS || true)
+METHOD=$(first $ARGS)
+USERS=$(rest $ARGS)
+
+if [ -n "$USERS" ]
+then
+    ( read_only_dialog "$METHOD Logout of users: $USERS ..." 10 || true ) &
+    RESULT=$(request_logout "$METHOD" $USERS)
+    report_result "$METHOD" "$RESULT"
+else
+	read_only_dialog "Logout Others Cancelled."
+fi
 
