@@ -1,1 +1,1 @@
-%staff ALL=(ALL) NOPASSWD: /Applications/Logout_Others.app/Contents/MacOS/Logout_Others
+%staff ALL=(ALL) NOPASSWD: /Applications/Logout_Others.app/Contents/MacOS/superuser_action
